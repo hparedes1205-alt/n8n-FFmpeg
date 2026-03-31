@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - digitaltrafkr-n8nwithpostgres-1n8fqf
+  n8n:
+    build: .
+    restart: unless-stopped
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=${N8N_PORT}
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://${N8N_HOST}/
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - N8N_SECURE_COOKIE=false
+      - NODES_EXCLUDE="[n8n-nodes-base.localFileTrigger]"
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=${EXECUTIONS_DATA_SAVE_ON_ERROR}
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=${EXECUTIONS_DATA_SAVE_ON_SUCCESS}
+      - EXECUTIONS_DATA_PRUNE=${EXECUTIONS_DATA_PRUNE}
+      - EXECUTIONS_DATA_MAX_AGE=${EXECUTIONS_DATA_MAX_AGE}
+      - EXECUTIONS_DATA_PRUNE_MAX_COUNT=${EXECUTIONS_DATA_PRUNE_MAX_COUNT}
+      - N8N_CONCURRENCY_PRODUCTION_LIMIT=${N8N_CONCURRENCY_PRODUCTION_LIMIT}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - digitaltrafkr-n8nwithpostgres-1n8fqf
+    labels:
+      - traefik.http.routers.digitaltrafkr-n8nwithpostgres-1n8fqf-13-web.rule=Host(`n8n.digitaltrafkr.com`)
+      - traefik.http.routers.digitaltrafkr-n8nwithpostgres-1n8fqf-13-web.entrypoints=web
+      - traefik.http.services.digitaltrafkr-n8nwithpostgres-1n8fqf-13-web.loadbalancer.server.port=5678
+      - traefik.http.routers.digitaltrafkr-n8nwithpostgres-1n8fqf-13-web.service=digitaltrafkr-n8nwithpostgres-1n8fqf-13-web
+      - traefik.http.routers.digitaltrafkr-n8nwithpostgres-1n8fqf-13-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.digitaltrafkr-n8nwithpostgres-1n8fqf-13-websecure.rule=Host(`n8n.digitaltrafkr.com`)
+      - traefik.http.routers.digitaltrafkr-n8nwithpostgres-1n8fqf-13-websecure.entrypoints=websecure
+      - traefik.http.services.digitaltrafkr-n8nwithpostgres-1n8fqf-13-websecure.loadbalancer.server.port=5678
+      - traefik.http.routers.digitaltrafkr-n8nwithpostgres-1n8fqf-13-websecure.service=digitaltrafkr-n8nwithpostgres-1n8fqf-13-websecure
+      - traefik.http.routers.digitaltrafkr-n8nwithpostgres-1n8fqf-13-websecure.tls.certresolver=letsencrypt
+      - traefik.enable=true
+volumes:
+  n8n_data: null
+  postgres_data: null
+networks:
+  digitaltrafkr-n8nwithpostgres-1n8fqf:
+    name: digitaltrafkr-n8nwithpostgres-1n8fqf
+    external: true
